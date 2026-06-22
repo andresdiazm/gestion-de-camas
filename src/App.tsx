@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Hospital, RefreshCw, BedDouble, LayoutList, Plus, X, Lock, Search, HelpCircle, FileText } from 'lucide-react';
+import { Hospital, RefreshCw, BedDouble, LayoutList, Plus, X, Lock, Search, HelpCircle, FileText, Clock, Ambulance } from 'lucide-react';
 import type { Bed, Role, EgresoPase, EgresoTipo, OrigenPaciente, Observacion } from './types';
 import { getEgresoStyle, PASE_LABELS } from './types';
 import { loadBeds, saveBeds, loadRole, saveRole } from './store';
 import { SERVICIOS, type ServicioId, getOrigen } from './constants';
 import RoleSelector from './components/RoleSelector';
-import BedCard from './components/BedCard';
+import { elapsedShort } from './components/BedCard';
 import BedDetail from './components/BedDetail';
 import EstadoView from './components/EstadoView';
 
@@ -235,15 +235,29 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3 pb-20">
+          <div className="flex-1 overflow-y-auto pb-20">
             {displayBeds.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 text-slate-400">
                 <RefreshCw size={28} className="mb-2 opacity-30" /><p className="text-sm">Sin resultados</p>
               </div>
             ) : (
-              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-                {displayBeds.map(bed => <BedCard key={bed.id} bed={bed} onClick={() => { setSelectedSource('camas'); setSelectedId(bed.id); }} />)}
-              </div>
+              <table className="w-full border-collapse">
+                <thead className="sticky top-0 z-10 bg-white border-b-2 border-slate-200">
+                  <tr>
+                    <th className="w-1.5 p-0" />
+                    <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Cama</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Estado</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Tipo</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Tiempo</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Asignado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayBeds.map(bed => (
+                    <BedRow key={bed.id} bed={bed} onClick={() => { setSelectedSource('camas'); setSelectedId(bed.id); }} />
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
         </>
@@ -317,6 +331,63 @@ export default function App() {
         />
       )}
     </div>
+  );
+}
+
+// ── Bed row (table view) ──────────────────────────────────────────────────────
+
+function BedRow({ bed, onClick }: { bed: Bed; onClick: () => void }) {
+  const isEgreso = bed.status === 'egreso';
+  const origen = bed.asignacion ? getOrigen(bed.asignacion.origen) : null;
+
+  let stripeClass = 'bg-slate-200';
+  let estadoText = '';
+  if (bed.status === 'ocupada')       { stripeClass = 'bg-slate-200';    estadoText = 'Ocupada'; }
+  else if (bed.status === 'libre')    { stripeClass = 'bg-emerald-500';  estadoText = 'Libre'; }
+  else if (bed.status === 'bloqueada'){ stripeClass = 'bg-slate-700';    estadoText = 'Bloqueada'; }
+  else if (isEgreso)                  { stripeClass = getEgresoStyle(bed.egreso!).bg; estadoText = PASE_LABELS[bed.egreso!.pase]; }
+
+  return (
+    <tr onClick={onClick} className="border-b border-slate-100 cursor-pointer hover:bg-slate-50 active:bg-slate-100">
+      <td className={`w-1.5 p-0 ${stripeClass}`} />
+      <td className="px-2 py-1.5 font-bold text-xs text-slate-800 whitespace-nowrap">
+        {bed.id}
+        {bed.genero && <span className="ml-1 font-normal text-slate-400">{bed.genero === 'M' ? '♂' : '♀'}</span>}
+        {bed.status === 'bloqueada' && <Lock size={10} className="inline ml-1 text-slate-400" />}
+      </td>
+      <td className="px-2 py-1.5 text-xs text-slate-600">
+        {estadoText}
+        {bed.status === 'bloqueada' && bed.bloqueo && (
+          <div className="text-[10px] text-slate-400 leading-tight">{bed.bloqueo.motivo}</div>
+        )}
+      </td>
+      <td className="px-2 py-1.5">
+        {isEgreso && (
+          <span className={`text-[9px] font-bold text-white px-1.5 py-0.5 rounded-full ${bed.egreso!.tipo === 'alta' ? 'bg-amber-400' : 'bg-teal-600'}`}>
+            {bed.egreso!.tipo === 'alta' ? 'ALTA' : 'TRAS'}
+          </span>
+        )}
+      </td>
+      <td className="px-2 py-1.5 text-xs text-slate-500 whitespace-nowrap">
+        {isEgreso && bed.egreso && (
+          <span className="flex items-center gap-1">
+            <Clock size={10} />
+            <span>{elapsedShort(bed.egreso.hora_declaracion)}</span>
+            {bed.egreso.hora_probable && <span className="text-slate-400">{bed.egreso.hora_probable}</span>}
+            {bed.egreso.necesita_ambulancia && <Ambulance size={10} />}
+          </span>
+        )}
+      </td>
+      <td className="px-2 py-1.5">
+        {origen ? (
+          <span className={`text-[9px] font-bold text-white px-1.5 py-0.5 rounded-full ${origen.bg}`}>
+            {origen.short}
+          </span>
+        ) : (
+          isEgreso && <span className="text-[9px] text-slate-400">sin asignar</span>
+        )}
+      </td>
+    </tr>
   );
 }
 
