@@ -30,7 +30,7 @@ localStorage ──(loadBeds / migrateBed)──► App state (useState<Bed[]>)
 ### Core model (`src/types.ts`)
 
 - `Bed` — top-level entity. Fields: `id` (string, e.g. `"601-1"`), `status`, `genero` (`'M' | 'F'`), optional `egreso`, `bloqueo`, `asignacion`, `observaciones`.
-- `asignacion` lives at **bed level**, not inside `EgresoData`. A libre or egreso bed can both have an incoming patient pre-assigned. `Asignacion` carries `origen`, `hora_asignacion`, and optional `nota`.
+- `asignacion` lives at **bed level**, not inside `EgresoData`. A libre or egreso bed can both have an incoming patient pre-assigned. `Asignacion` carries `origen`, `hora_asignacion`, and optional `nota` (cama or patient name).
 - `EgresoData` carries `tipo` (`alta` | `traslado`), a linear phase `pase: EgresoPase`, `hora_pase`, `hora_declaracion`, `caso_entregado` (independent boolean flag), optional `traslado_destino_*`, and **`pase_history`** — an ordered log of every phase transition: `Array<{ pase: EgresoPase; hora: string }>`. Initialized with `declarado` on `declararEgreso`; each `avanzarPase` call appends the new entry. Old records without `pase_history` fall back to `hora_declaracion` / `hora_pase` for the PDF report.
 - `Observacion` — `{ texto, hora, rol }`. Accumulated in `bed.observaciones[]`, never overwritten. Both roles can add observations.
 - `caso_entregado` is **not a sequential step** — it's a parallel flag either role can toggle at any point during an egreso.
@@ -47,7 +47,7 @@ declarado → cama_liberada → en_aseo → cama_lista → paciente_en_cama
 
 | Pase | Display label |
 |---|---|
-| `declarado` | Alta declarada |
+| `declarado` | Movimiento declarado |
 | `cama_liberada` | Cama liberada |
 | `en_aseo` | En aseo |
 | `cama_lista` | Cama disponible |
@@ -71,7 +71,7 @@ declarado → cama_liberada → en_aseo → cama_lista → paciente_en_cama
 - **Medicina** (`601–602`): `601-1` … `601-6`, `602-1` … `602-3` (9 beds)
 - **UTI** (`501–503`): `501-1`, `501-2`, `502-1`, `502-2`, `503-1`, `503-2` (6 beds)
 
-`SERVICIOS`, `ServicioId`, `getServicioForBed(bedId)`, `ORIGENES`, and `getOrigen(value)` are defined here.
+`SERVICIOS`, `ServicioId`, `getServicioForBed(bedId)`, `ORIGENES`, and `getOrigen(value)` are defined here. `ORIGENES` short labels: `URG`, `RECU`, `TABLA`, `CDT`, `RESC`, `INT`.
 
 ### Store / migration (`src/store.ts`)
 
@@ -91,10 +91,10 @@ localStorage key: `altas_beds_v4`. Key exports:
 
 ### Key interactions
 
-- **Declaring a traslado with a destination**: `declararEgreso` in `App.tsx` updates two beds atomically — the source becomes `egreso`, the destination receives `asignacion: { origen: 'traslado_interno' }` automatically.
+- **Declaring a traslado with a destination**: `declararEgreso` in `App.tsx` updates two beds atomically — the source becomes `egreso` (with `traslado_destino_cama` set), the destination receives `asignacion: { origen: 'traslado_interno' }` automatically.
 - **Completing a cycle** (`completarCiclo`): triggered from the kanban ▶ button on the last column (`paciente_en_cama`). If the bed has an `asignacion`, status becomes `ocupada`; otherwise `libre`.
 - **Cama bloqueada**: clears egreso and asignacion.
-- **Traslado interno bed picker** (`AsignacionSheet`): when `traslado_interno` is selected, shows only beds with `egreso.tipo === 'traslado'` as selectable sources.
+- **Traslado interno bed picker** (`AsignacionSheet`): when `traslado_interno` is selected, shows only beds with `egreso.tipo === 'traslado'` that are not already claimed — i.e. `egreso.traslado_destino_cama` is unset AND no other bed has `asignacion.nota === this.id`.
 
 ### App.tsx callbacks
 
@@ -118,12 +118,29 @@ localStorage key: `altas_beds_v4`. Key exports:
 
 | Component | Role |
 |---|---|
-| `App.tsx` | All state, all callbacks, service tab filtering, bottom nav (2 tabs + FAB). Inline: `BedPickerSheet`, `GlosarioSheet`, `generateReport` |
-| `BedCard.tsx` | Compact grid card — color from `getEgresoStyle()`, shows pase label text. Exports `elapsedShort`. |
+| `App.tsx` | All state, all callbacks, service tab filtering, bottom nav (2 tabs + FAB). Inline components: `BedRow` (table row), `BedPickerSheet`, `GlosarioSheet`, `generateReport` |
+| `BedCard.tsx` | No longer used for the Camas grid. Only its named export `elapsedShort` is imported by App.tsx and EstadoView. |
 | `BedDetail.tsx` | Bottom sheet. Accepts `simplified` prop — see below. Sub-components: `CasoEntregadoToggle`, `EgresoForm`, `BloqueoSection`, `AsignacionInline`, `ObservacionesSection`, `PaseProgress`. |
-| `AsignacionSheet.tsx` | Overlay for selecting patient origin + optional nota. When `traslado_interno`: shows bed picker filtered to traslado-only sources. Requires `allBeds` prop. |
+| `AsignacionSheet.tsx` | Overlay for selecting patient origin + optional nota. When `traslado_interno`: shows bed picker filtered to unclaimed traslado sources. Requires `allBeds` prop. |
 | `EstadoView.tsx` | **Kanban board** — 5 columns; libre beds in column 3 ("Disponible"); ocupada/bloqueada hidden. Drag-and-drop + ◀▶ buttons. ▶ on last column calls `completarCiclo`. |
 | `RoleSelector.tsx` | Initial role selection screen |
+
+> `AsignacionView.tsx` exists in the file system but is not imported or used.
+
+### Camas tab — table view
+
+The Camas tab renders a compact `<table>` (not a card grid) using the inline `BedRow` component in App.tsx. Columns:
+
+| Column | Content |
+|---|---|
+| *(stripe)* | 6px color bar matching egreso/status color |
+| Cama | `bed.id` + género symbol + lock icon if bloqueada |
+| Estado | Status text; bloqueo motivo on second line |
+| Tipo | ALTA / Traslado badge (egreso only) |
+| Tiempo | Elapsed since `hora_declaracion` + `hora_probable` + ambulance icon |
+| Entrega | ✓ if `caso_entregado`, — otherwise (egreso only) |
+| Asignación | Origin badge (URG, RECU, etc.) or "sin asignar" |
+| Asignado a | `bed.asignacion.nota` (free-text cama or patient name) |
 
 ### BedDetail `simplified` prop
 
@@ -138,6 +155,8 @@ localStorage key: `altas_beds_v4`. Key exports:
 
 **App tabs** (`AppTab`): `'camas'` · `'estado'` — same for both roles.
 
+**Service selector** (header tabs): `'todos'` · `'medicina'` · `'uti'`. State type is `ServicioId | 'todos'`. When `'todos'`, `serviceBeds` is the full `beds` array.
+
 **Header buttons** (top-right): PDF report (`generateReport`) · glosario (`GlosarioSheet`) · role selector.
 
 **FAB (`+` button)**: center of bottom nav. Opens `BedPickerSheet` — a search-by-ID sheet that filters all beds in real time and opens `BedDetail` in simplified mode.
@@ -150,7 +169,7 @@ Columns (left → right, matching `PASE_ORDER`):
 
 | Index | Column label | Color | Contents |
 |---|---|---|---|
-| 0 | Alta declarada | red-500 | egreso pase=declarado |
+| 0 | Movimiento declarado | red-500 | egreso pase=declarado |
 | 1 | Cama liberada | orange-400 | egreso pase=cama_liberada |
 | 2 | En aseo | amber-400 | egreso pase=en_aseo |
 | 3 | Disponible | emerald-500 | egreso pase=cama_lista **+ libre beds** |
