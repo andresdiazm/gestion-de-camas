@@ -19,6 +19,7 @@ function elapsedFull(iso: string): string {
 interface Props {
   bed: Bed;
   role: Role;
+  simplified?: boolean; // true = Camas tab (declare only); false = Estado tab (full management)
   onClose: () => void;
   onDeclararEgreso: (
     id: string, tipo: EgresoTipo, hora: string, ambulancia: boolean,
@@ -62,7 +63,7 @@ const NEXT_PASE_LABELS: Record<EgresoPase, string> = {
 };
 
 export default function BedDetail({
-  bed, role, onClose,
+  bed, role, simplified = false, onClose,
   onDeclararEgreso, onAvanzarPase, onToggleCasoEntregado,
   onCancelarAlta, onCompletarCiclo,
   onMarcarLibre, onMarcarOcupada,
@@ -183,9 +184,11 @@ export default function BedDetail({
                 </div>
                 <p className="font-semibold text-base">{bed.bloqueo!.motivo}</p>
               </div>
-              <button onClick={() => onDesbloquear(bed.id)} className="w-full bg-emerald-500 text-white rounded-xl py-4 font-bold flex items-center justify-center gap-2 active:bg-emerald-600 shadow-md">
-                <Unlock size={18} /> Desbloquear cama
-              </button>
+              {!simplified && (
+                <button onClick={() => onDesbloquear(bed.id)} className="w-full bg-emerald-500 text-white rounded-xl py-4 font-bold flex items-center justify-center gap-2 active:bg-emerald-600 shadow-md">
+                  <Unlock size={18} /> Desbloquear cama
+                </button>
+              )}
             </div>
           )}
 
@@ -197,12 +200,16 @@ export default function BedDetail({
                 <span className="font-medium text-emerald-800">Cama disponible para asignación</span>
               </div>
               {showAsignacionInfo && <AsignacionInline origenInfo={origenInfo} nota={bed.asignacion?.nota} canEdit={canAsignar} onOpen={() => setShowAsignacion(true)} />}
-              <button onClick={() => onMarcarOcupada(bed.id)} className="w-full bg-slate-700 text-white rounded-xl py-3.5 font-semibold active:bg-slate-800">
-                Marcar como ocupada
-              </button>
-              <BloqueoSection show={showBloqueo} motivo={motivoBloqueo} onMotivo={setMotivoBloqueo}
-                onOpen={() => setShowBloqueo(true)} onClose={() => { setShowBloqueo(false); setMotivoBloqueo(''); }}
-                onConfirm={handleBloquear} />
+              {!simplified && (
+                <>
+                  <button onClick={() => onMarcarOcupada(bed.id)} className="w-full bg-slate-700 text-white rounded-xl py-3.5 font-semibold active:bg-slate-800">
+                    Marcar como ocupada
+                  </button>
+                  <BloqueoSection show={showBloqueo} motivo={motivoBloqueo} onMotivo={setMotivoBloqueo}
+                    onOpen={() => setShowBloqueo(true)} onClose={() => { setShowBloqueo(false); setMotivoBloqueo(''); }}
+                    onConfirm={handleBloquear} />
+                </>
+              )}
             </div>
           )}
 
@@ -233,14 +240,16 @@ export default function BedDetail({
                   onConfirm={handleConfirmar} onCancel={() => setTipoForm(null)} />
               )}
 
-              {tipoForm === null && (
-                <button onClick={() => onMarcarLibre(bed.id)} className="w-full border-2 border-slate-200 text-slate-600 rounded-xl py-3 font-medium">
-                  Marcar como libre
-                </button>
+              {!simplified && tipoForm === null && (
+                <>
+                  <button onClick={() => onMarcarLibre(bed.id)} className="w-full border-2 border-slate-200 text-slate-600 rounded-xl py-3 font-medium">
+                    Marcar como libre
+                  </button>
+                  <BloqueoSection show={showBloqueo} motivo={motivoBloqueo} onMotivo={setMotivoBloqueo}
+                    onOpen={() => setShowBloqueo(true)} onClose={() => { setShowBloqueo(false); setMotivoBloqueo(''); }}
+                    onConfirm={handleBloquear} />
+                </>
               )}
-              <BloqueoSection show={showBloqueo} motivo={motivoBloqueo} onMotivo={setMotivoBloqueo}
-                onOpen={() => setShowBloqueo(true)} onClose={() => { setShowBloqueo(false); setMotivoBloqueo(''); }}
-                onConfirm={handleBloquear} />
             </div>
           )}
 
@@ -288,46 +297,30 @@ export default function BedDetail({
                 onToggle={() => onToggleCasoEntregado(bed.id)}
               />
 
-              {/* Phase progress */}
+              {/* Phase progress — always informational */}
               <PaseProgress egreso={bed.egreso} />
 
-              {/* Next phase action */}
-              {canAdvanceNow && nextPase && (
-                <button
-                  onClick={() => onAvanzarPase(bed.id, nextPase)}
-                  className={`w-full flex items-center justify-between px-5 py-4 rounded-xl font-bold text-base shadow-md active:opacity-90 ${getEgresoStyle({ ...bed.egreso!, pase: nextPase }).bg} text-white`}
-                >
-                  <span>{NEXT_PASE_LABELS[currentPase!]}</span>
-                  <ArrowRight size={18} />
-                </button>
-              )}
-
-              {/* Complete cycle */}
-              {canCompletarCiclo && (
-                <button onClick={() => onCompletarCiclo(bed.id)} className="w-full bg-[#1e3a5f] text-white rounded-xl py-4 font-bold text-base active:bg-blue-900 shadow-md">
-                  {bed.asignacion ? 'Ciclo completo → Ocupada' : 'Ciclo completo → Libre'}
-                </button>
-              )}
-
-              {/* Cancel */}
-              <div className="space-y-2 pt-1">
-                {!confirmCancel ? (
-                  <button onClick={() => setConfirmCancel(true)} className="w-full flex items-center justify-center gap-2 border-2 border-red-200 text-red-400 rounded-xl py-3 font-medium">
-                    <AlertTriangle size={15} /> Cancelar {isAlta ? 'alta' : 'traslado'}
-                  </button>
-                ) : (
-                  <div className="space-y-2 bg-red-50 border border-red-200 rounded-xl p-4">
-                    <p className="text-sm font-semibold text-red-700 text-center">¿Cancelar el {isAlta ? 'alta' : 'traslado'}?</p>
-                    <div className="flex gap-2">
-                      <button onClick={() => setConfirmCancel(false)} className="flex-1 border-2 border-slate-200 rounded-xl py-2.5 text-slate-600 font-semibold">No, volver</button>
-                      <button onClick={() => onCancelarAlta(bed.id)} className="flex-1 bg-red-500 text-white rounded-xl py-2.5 font-bold">Sí, cancelar</button>
+              {/* Management actions — Estado tab only */}
+              {!simplified && (
+                <div className="space-y-2 pt-1">
+                  {!confirmCancel ? (
+                    <button onClick={() => setConfirmCancel(true)} className="w-full flex items-center justify-center gap-2 border-2 border-red-200 text-red-400 rounded-xl py-3 font-medium">
+                      <AlertTriangle size={15} /> Cancelar {isAlta ? 'alta' : 'traslado'}
+                    </button>
+                  ) : (
+                    <div className="space-y-2 bg-red-50 border border-red-200 rounded-xl p-4">
+                      <p className="text-sm font-semibold text-red-700 text-center">¿Cancelar el {isAlta ? 'alta' : 'traslado'}?</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => setConfirmCancel(false)} className="flex-1 border-2 border-slate-200 rounded-xl py-2.5 text-slate-600 font-semibold">No, volver</button>
+                        <button onClick={() => onCancelarAlta(bed.id)} className="flex-1 bg-red-500 text-white rounded-xl py-2.5 font-bold">Sí, cancelar</button>
+                      </div>
                     </div>
-                  </div>
-                )}
-                <BloqueoSection show={showBloqueo} motivo={motivoBloqueo} onMotivo={setMotivoBloqueo}
-                  onOpen={() => setShowBloqueo(true)} onClose={() => { setShowBloqueo(false); setMotivoBloqueo(''); }}
-                  onConfirm={handleBloquear} />
-              </div>
+                  )}
+                  <BloqueoSection show={showBloqueo} motivo={motivoBloqueo} onMotivo={setMotivoBloqueo}
+                    onOpen={() => setShowBloqueo(true)} onClose={() => { setShowBloqueo(false); setMotivoBloqueo(''); }}
+                    onConfirm={handleBloquear} />
+                </div>
+              )}
             </div>
           )}
 

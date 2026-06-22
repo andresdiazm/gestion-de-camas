@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clock, Ambulance, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, Ambulance, ChevronLeft, ChevronRight, CheckCheck } from 'lucide-react';
 import type { Bed, EgresoPase } from '../types';
 import { PASE_LABELS, PASE_ORDER, getEgresoStyle } from '../types';
 import { getOrigen } from '../constants';
@@ -9,6 +9,7 @@ interface Props {
   beds: Bed[];
   onBedClick: (id: string) => void;
   onAvanzarPase: (id: string, pase: EgresoPase) => void;
+  onCompletarCiclo: (id: string) => void;
 }
 
 const COLUMNS: Array<{ label: string; headerBg: string }> = [
@@ -32,7 +33,7 @@ function bedsForCol(beds: Bed[], idx: number): Bed[] {
     .sort((a, b) => (a.egreso?.hora_declaracion ?? a.id) < (b.egreso?.hora_declaracion ?? b.id) ? -1 : 1);
 }
 
-export default function EstadoView({ beds, onBedClick, onAvanzarPase }: Props) {
+export default function EstadoView({ beds, onBedClick, onAvanzarPase, onCompletarCiclo }: Props) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<number | null>(null);
 
@@ -92,7 +93,7 @@ export default function EstadoView({ beds, onBedClick, onAvanzarPase }: Props) {
                         : undefined}
                       onMoveRight={colIdx < 4
                         ? () => onAvanzarPase(bed.id, PASE_ORDER[colIdx + 1])
-                        : undefined}
+                        : () => onCompletarCiclo(bed.id)}
                     />
                   ))}
                 </div>
@@ -113,10 +114,10 @@ interface CardProps {
   onDragStart: () => void;
   onDragEnd: () => void;
   onMoveLeft?: () => void;
-  onMoveRight?: () => void;
+  onMoveRight?: () => void; // on last col, calls completarCiclo
 }
 
-function KanbanCard({ bed, isDragging, onCardClick, onDragStart, onDragEnd, onMoveLeft, onMoveRight }: CardProps) {
+function KanbanCard({ bed, colIdx, isDragging, onCardClick, onDragStart, onDragEnd, onMoveLeft, onMoveRight }: CardProps) {
   const isEgreso = bed.status === 'egreso';
   const isAlta   = bed.egreso?.tipo === 'alta';
   const origenInfo = bed.asignacion ? getOrigen(bed.asignacion.origen) : null;
@@ -177,10 +178,13 @@ function KanbanCard({ bed, isDragging, onCardClick, onDragStart, onDragEnd, onMo
           <div className="w-px bg-slate-100" />
           <button
             onClick={e => { e.stopPropagation(); onMoveRight?.(); }}
-            disabled={!onMoveRight}
-            className={`flex-1 flex items-center justify-center py-1.5 rounded-br-xl transition-colors ${onMoveRight ? 'active:bg-slate-100 text-slate-400' : 'text-slate-200 cursor-not-allowed'}`}
+            className={`flex-1 flex items-center justify-center py-1.5 rounded-br-xl transition-colors ${
+              colIdx === 4
+                ? 'active:bg-emerald-50 text-emerald-500'
+                : 'active:bg-slate-100 text-slate-400'
+            }`}
           >
-            <ChevronRight size={14} />
+            {colIdx === 4 ? <CheckCheck size={13} /> : <ChevronRight size={14} />}
           </button>
         </div>
       )}

@@ -78,6 +78,9 @@ function migrateBed(raw: Record<string, unknown>): Bed {
       caso_entregado:        casoEntregado || undefined,
       traslado_destino_servicio: egreso.traslado_destino_servicio as string | undefined,
       traslado_destino_cama:     egreso.traslado_destino_cama as string | undefined,
+      pase_history:          Array.isArray(egreso.pase_history)
+                               ? (egreso.pase_history as Array<{ pase: EgresoPase; hora: string }>)
+                               : undefined,
     };
   }
 

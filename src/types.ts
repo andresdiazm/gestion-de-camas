@@ -70,9 +70,10 @@ export interface EgresoData {
   hora_probable: string;
   necesita_ambulancia: boolean;
   hora_declaracion: string;
-  caso_entregado?: boolean;         // flag paralelo, independiente del flujo secuencial
+  caso_entregado?: boolean;
   traslado_destino_servicio?: string;
   traslado_destino_cama?: string;
+  pase_history?: Array<{ pase: EgresoPase; hora: string }>; // ordered log of each transition
 }
 
 export interface Observacion {
