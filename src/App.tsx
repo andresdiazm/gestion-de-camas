@@ -249,7 +249,9 @@ export default function App() {
                     <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Estado</th>
                     <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Tipo</th>
                     <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Tiempo</th>
-                    <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Asignado</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Entrega</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Asignación</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Asignado a</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -364,7 +366,7 @@ function BedRow({ bed, onClick }: { bed: Bed; onClick: () => void }) {
       <td className="px-2 py-1.5">
         {isEgreso && (
           <span className={`text-[9px] font-bold text-white px-1.5 py-0.5 rounded-full ${bed.egreso!.tipo === 'alta' ? 'bg-amber-400' : 'bg-teal-600'}`}>
-            {bed.egreso!.tipo === 'alta' ? 'ALTA' : 'TRAS'}
+            {bed.egreso!.tipo === 'alta' ? 'ALTA' : 'Traslado'}
           </span>
         )}
       </td>
@@ -378,6 +380,13 @@ function BedRow({ bed, onClick }: { bed: Bed; onClick: () => void }) {
           </span>
         )}
       </td>
+      <td className="px-2 py-1.5 text-center text-xs">
+        {isEgreso
+          ? bed.egreso!.caso_entregado
+            ? <span className="text-emerald-600 font-bold">✓</span>
+            : <span className="text-slate-300">—</span>
+          : null}
+      </td>
       <td className="px-2 py-1.5">
         {origen ? (
           <span className={`text-[9px] font-bold text-white px-1.5 py-0.5 rounded-full ${origen.bg}`}>
@@ -386,6 +395,9 @@ function BedRow({ bed, onClick }: { bed: Bed; onClick: () => void }) {
         ) : (
           isEgreso && <span className="text-[9px] text-slate-400">sin asignar</span>
         )}
+      </td>
+      <td className="px-2 py-1.5 text-xs text-slate-500 max-w-[6rem] truncate">
+        {bed.asignacion?.nota ?? (bed.asignacion ? '—' : '')}
       </td>
     </tr>
   );
@@ -420,7 +432,7 @@ function generateReport(beds: Bed[]) {
   const bedsObs   = beds.filter(b => b.observaciones && b.observaciones.length > 0);
 
   const PHASES: Array<{ pase: string; label: string; color: string }> = [
-    { pase: 'declarado',        label: 'Alta indicada',    color: '#ef4444' },
+    { pase: 'declarado',        label: 'Movimiento declarado', color: '#ef4444' },
     { pase: 'cama_liberada',    label: 'Cama liberada',    color: '#fb923c' },
     { pase: 'en_aseo',          label: 'Inicio aseo',      color: '#f59e0b' },
     { pase: 'cama_lista',       label: 'Cama disponible',  color: '#10b981' },
@@ -522,7 +534,7 @@ function generateReport(beds: Bed[]) {
     <thead><tr>
       <th class="left">Cama</th>
       <th class="left">Tipo</th>
-      <th style="color:#ef4444">Alta<br>indicada</th>
+      <th style="color:#ef4444">Movimiento<br>declarado</th>
       <th style="color:#fb923c">Cama<br>liberada</th>
       <th style="color:#f59e0b">Inicio<br>aseo</th>
       <th style="color:#10b981">Cama<br>disponible</th>
@@ -640,9 +652,9 @@ function BedPickerSheet({ beds, onSelect, onClose }: {
 
 const GLOSARIO = [
   {
-    label: 'Alta declarada',
+    label: 'Movimiento declarado',
     bg: 'bg-red-500',
-    def: 'El médico indica el alta, pero el paciente sigue utilizando su cama. Incluye entrega de documentación, fármacos y educación al paciente.',
+    def: 'El médico indica el alta o traslado, pero el paciente sigue utilizando su cama. Incluye entrega de documentación, fármacos y educación al paciente.',
   },
   {
     label: 'Cama liberada',

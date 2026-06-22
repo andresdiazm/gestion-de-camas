@@ -14,7 +14,7 @@ export const PASE_ORDER: EgresoPase[] = [
 ];
 
 export const PASE_LABELS: Record<EgresoPase, string> = {
-  declarado:        'Alta declarada',
+  declarado:        'Movimiento declarado',
   cama_liberada:    'Cama liberada',
   en_aseo:          'En aseo',
   cama_lista:       'Cama disponible',

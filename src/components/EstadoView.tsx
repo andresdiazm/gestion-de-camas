@@ -13,7 +13,7 @@ interface Props {
 }
 
 const COLUMNS: Array<{ label: string; headerBg: string }> = [
-  { label: 'Alta declarada',   headerBg: 'bg-red-500'     },
+  { label: 'Movimiento declarado', headerBg: 'bg-red-500' },
   { label: 'Cama liberada',    headerBg: 'bg-orange-400'  },
   { label: 'En aseo',          headerBg: 'bg-amber-400'   },
   { label: 'Disponible',       headerBg: 'bg-emerald-500' }, // cama_lista + libre

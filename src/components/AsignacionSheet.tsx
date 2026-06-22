@@ -34,9 +34,22 @@ export default function AsignacionSheet({ bed, allBeds, onSave, onRemove, onClos
   const isLibre = bed.status === 'libre';
   const isTrasladoInterno = selected === 'traslado_interno';
 
-  // Beds eligible as traslado source: libre or egreso, excluding self
+  // Beds already claimed as traslado source by another destination bed (via nota)
+  const manuallyAssignedSources = new Set(
+    (allBeds ?? [])
+      .filter(b => b.id !== bed.id && b.asignacion?.origen === 'traslado_interno' && b.asignacion.nota)
+      .map(b => b.asignacion!.nota!)
+  );
+
+  // Beds eligible as traslado source: egreso+traslado, not already claimed, excluding self
   const trasladoOpts = (allBeds ?? [])
-    .filter(b => b.id !== bed.id && b.status === 'egreso' && b.egreso?.tipo === 'traslado')
+    .filter(b =>
+      b.id !== bed.id &&
+      b.status === 'egreso' &&
+      b.egreso?.tipo === 'traslado' &&
+      !b.egreso.traslado_destino_cama &&
+      !manuallyAssignedSources.has(b.id)
+    )
     .sort((a, b) => a.id.localeCompare(b.id));
 
   const handlePickBed = (b: Bed) => {

@@ -32,7 +32,7 @@ export const ORIGENES: Array<{
   ring: string;
 }> = [
   { value: 'urgencia',         label: 'Urgencia',          short: 'URG',   bg: 'bg-red-500',    ring: 'ring-red-400' },
-  { value: 'recuperacion',     label: 'Recuperación',      short: 'REC',   bg: 'bg-orange-500', ring: 'ring-orange-400' },
+  { value: 'recuperacion',     label: 'Recuperación',      short: 'RECU',  bg: 'bg-orange-500', ring: 'ring-orange-400' },
   { value: 'tabla',            label: 'Tabla',             short: 'TABLA', bg: 'bg-blue-600',   ring: 'ring-blue-500' },
   { value: 'cdt',              label: 'CDT',               short: 'CDT',   bg: 'bg-green-600',  ring: 'ring-green-500' },
   { value: 'rescate_externo',  label: 'Rescate externo',   short: 'RESC',  bg: 'bg-purple-600', ring: 'ring-purple-500' },
