@@ -19,7 +19,7 @@ export default function App() {
   const [filter, setFilter] = useState<Filter>('todas');
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<AppTab>('camas');
-  const [servicio, setServicio] = useState<ServicioId>('medicina');
+  const [servicio, setServicio] = useState<ServicioId | 'todos'>('medicina');
   const [showBedPicker, setShowBedPicker] = useState(false);
   const [showGlosario, setShowGlosario] = useState(false);
   const [selectedSource, setSelectedSource] = useState<'camas' | 'estado'>('camas');
@@ -141,8 +141,9 @@ export default function App() {
 
   if (!role) return <RoleSelector onSelect={handleRoleSelect} />;
 
-  const srv = SERVICIOS.find(s => s.id === servicio)!;
-  const serviceBeds = beds.filter(b => srv.beds.includes(b.id));
+  const serviceBeds = servicio === 'todos'
+    ? beds
+    : beds.filter(b => SERVICIOS.find(s => s.id === servicio)!.beds.includes(b.id));
 
   const movimientosCount = serviceBeds.filter(b => b.status === 'egreso').length;
   const disponiblesCount = serviceBeds.filter(b => b.status === 'libre').length;
@@ -187,6 +188,12 @@ export default function App() {
           </div>
         </div>
         <div className="flex">
+          <button
+            onClick={() => setServicio('todos')}
+            className={`flex-1 py-2 text-xs font-bold tracking-wide border-b-2 transition-colors ${servicio === 'todos' ? 'border-white text-white' : 'border-transparent text-blue-300'}`}
+          >
+            Todos
+          </button>
           {SERVICIOS.map(s => (
             <button
               key={s.id}
